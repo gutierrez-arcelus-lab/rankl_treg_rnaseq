@@ -46,6 +46,6 @@ gencode_tx |>
 
 # Gene metadata
 gencode_gene |>
-    select(gene_id, gene_name, gene_type) |>
+    select(chr = seqnames, start, gene_id, gene_name, gene_type) |>
     write_tsv(file.path(ref, "gencode.vM39.gene_metadata.tsv"))
 
