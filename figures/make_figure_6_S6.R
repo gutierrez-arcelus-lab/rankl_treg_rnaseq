@@ -8,7 +8,12 @@ library(fgsea)
 library(msigdbr)
 
 # Expression data
-y <- read_rds("../02_dge/output/edger/dgelist_collapsed.rds")
+#y <- read_rds("../02_dge/output/edger/dgelist_collapsed.rds")
+y <- read_rds("../merge_by_sample/02_dge/output/edger/dgelist.rds")
+
+gene_meta <- 
+    "../01_expression/0_index/data/reference/gencode.vM39.gene_metadata.tsv" |>
+    read_tsv()
 
 # Figure 6-f: Tnfsf11 expression -----------------------------------------------
 
@@ -25,7 +30,8 @@ s2   <- s2[filterByExpr(s2, group = geno2), , keep.lib.sizes = FALSE]
 s2   <- normLibSizes(s2)
 s2   <- estimateDisp(s2, design2, robust = TRUE)
 
-res2 <- read_tsv("../02_dge/output/edger/Exp2_iYFP_Mut_vs_WT.tsv.gz")
+#res2 <- read_tsv("../02_dge/output/edger/Exp2_iYFP_Mut_vs_WT.tsv.gz")
+res2 <- read_tsv("../merge_by_sample/02_dge/output/edger/Exp2_iYFP_Mut_vs_WT.tsv.gz")
 
 # ==============================================================================
 # Exp3: IL-1b vs IL-6
@@ -39,7 +45,8 @@ s3   <- s3_0[filterByExpr(s3_0, group = cond3), , keep.lib.sizes = FALSE]
 s3   <- normLibSizes(s3)
 s3   <- estimateDisp(s3, design3, robust = TRUE)
 
-res3 <- read_tsv("../02_dge/output/edger/Exp3_IL1b_vs_IL6.tsv.gz")
+#res3 <- read_tsv("../02_dge/output/edger/Exp3_IL1b_vs_IL6.tsv.gz")
+res3 <- read_tsv("../merge_by_sample/02_dge/output/edger/Exp3_IL1b_vs_IL6.tsv.gz")
 
 # ==============================================================================
 # Figure
@@ -95,7 +102,8 @@ fig_6f <-
                labeller = as_labeller(c(exp2 = "Foxp3 genotype",
                                         exp3 = "Cytokine"))) +
     scale_x_discrete(labels = xlab_6f) +
-    scale_y_continuous(limits = c(0, 25), expand = expansion(mult = c(0, 0.15))) +
+    #scale_y_continuous(limits = c(0, 25), expand = expansion(mult = c(0, 0.15))) +
+    scale_y_continuous(limits = c(0, 26), expand = expansion(mult = c(0, 0.15))) +
     scale_fill_manual(values = c("WT" = "#BEBEBE", "Mut" = "#7D2C4F", "IL-6" = "#F2D791", "IL-1b" = "#548D91"),
 		      guide = "none") +
     labs(x = NULL, y = "Expression (CPM)",
@@ -109,14 +117,12 @@ fig_6f <-
 	  plot.title = element_text(size = 10, hjust = 0.5, face = "italic")
 	  )
 
-ggsave("pdf/fig6_f.pdf", fig_6f, 
+#ggsave("pdf/fig6_f.pdf", fig_6f, 
+ggsave("pdf_merged_samples/fig6_f.pdf", fig_6f, 
        width = 60, height = 60, 
        dpi = 600,
        units = "mm", 
        device = cairo_pdf)
-
-
-
 
 
 # Figure S6-c: Experiment 3 ----------------------------------------------------
@@ -139,7 +145,8 @@ long_exp3 <-
     as.data.frame() |>
     as_tibble(rownames = "gene_id") |>
     pivot_longer(-gene_id, names_to = "sample_name", values_to = "z") |>
-    left_join(s3$sample, join_by(sample_name)) |>
+    #left_join(s3$sample, join_by(sample_name)) |>
+    left_join(s3$sample |> as_tibble(rownames = "sample_name"), join_by(sample_name)) |>
     left_join(s3$genes, join_by(gene_id)) |>
     select(mouse, sample_name, sex, genotype, condition, gene_id, gene_name, gene_type, z) |>
     mutate(mouse = paste0("M", mouse),
@@ -169,7 +176,8 @@ fig_s6c <-
     labs(x = NULL, y = NULL) +
     guides(fill = guide_colorbar(barwidth = .5))
 
-ggsave("pdf/Sfig6_c.pdf", fig_s6c, 
+#ggsave("pdf/Sfig6_c.pdf", fig_s6c, 
+ggsave("pdf_merged_samples/Sfig6_c.pdf", fig_s6c, 
        width = 120, height = 100, 
        dpi = 600,
        units = "mm", 
@@ -200,7 +208,8 @@ long_exp3_sel <-
     as.data.frame() |>
     as_tibble(rownames = "gene_id") |>
     pivot_longer(-gene_id, names_to = "sample_name", values_to = "z") |>
-    left_join(s3_0$sample, join_by(sample_name)) |>
+    #left_join(s3_0$sample, join_by(sample_name)) |>
+    left_join(s3_0$sample |> as_tibble(rownames = "sample_name"), join_by(sample_name)) |>
     left_join(s3_0$genes, join_by(gene_id)) |>
     select(mouse, sample_name, sex, genotype, condition, gene_id, gene_name, gene_type, z) |>
     mutate(mouse = paste0("M", mouse),
@@ -230,16 +239,15 @@ fig_s6d <-
     labs(x = NULL, y = NULL) +
     guides(fill = guide_colorbar(barwidth = .5))
 
-ggsave("pdf/Sfig6_d.pdf", fig_s6d, 
+#ggsave("pdf/Sfig6_d.pdf", fig_s6d, 
+ggsave("pdf_merged_samples/Sfig6_d.pdf", fig_s6d, 
        width = 120, height = 100, 
        dpi = 600,
        units = "mm", 
        device = cairo_pdf)
 
 
-
 # Bonus: Pathway enrichment for IL1-b vs IL-6
-
 ranks_exp3 <- 
     res3 |>
     mutate(tstat = sign(logFC) * sqrt(F)) |> 
@@ -292,7 +300,8 @@ gsea_exp3_plot <-
 	 y = NULL, color = NULL) 
 
 
-ggsave("pdf/gsea_IL1BvsIL6.pdf", gsea_exp3_plot, 
+#ggsave("pdf/gsea_IL1BvsIL6.pdf", gsea_exp3_plot, 
+ggsave("pdf_merged_samples/gsea_IL1BvsIL6.pdf", gsea_exp3_plot, 
        width = 120, height = 90, 
        dpi = 600,
        units = "mm", 

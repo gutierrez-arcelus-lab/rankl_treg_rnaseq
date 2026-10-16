@@ -8,7 +8,8 @@ library(fgsea)
 library(msigdbr)
 
 # Expression data
-y <- read_rds("../02_dge/output/edger/dgelist_collapsed.rds")
+#y <- read_rds("../02_dge/output/edger/dgelist_collapsed.rds")
+y <- read_rds("../merge_by_sample/02_dge/output/edger/dgelist.rds")
 
 gene_meta <- 
     "../01_expression/0_index/data/reference/gencode.vM39.gene_metadata.tsv" |>
@@ -25,7 +26,8 @@ s4   <- s4_0[filterByExpr(s4_0, group = cond4), , keep.lib.sizes = FALSE]
 s4   <- normLibSizes(s4)
 s4   <- estimateDisp(s4, design4, robust = TRUE)
 
-res4 <- read_tsv("../02_dge/output/edger/Exp4_RANKLpos_vs_RANKLneg.tsv.gz")
+#res4 <- read_tsv("../02_dge/output/edger/Exp4_RANKLpos_vs_RANKLneg.tsv.gz")
+res4 <- read_tsv("../merge_by_sample/02_dge/output/edger/Exp4_RANKLpos_vs_RANKLneg.tsv.gz")
 
 # 1. top 50 genes by p-value
 top_genes <- 
@@ -42,10 +44,10 @@ mat_z <- t(scale(t(mat)))
 # 4. long format + attach sample metadata
 long <- 
     mat_z |>
-    as.data.frame() |>
     as_tibble(rownames = "gene_id") |>
     pivot_longer(-gene_id, names_to = "sample_name", values_to = "z") |>
-    left_join(s4$sample, join_by(sample_name)) |>
+    #left_join(s4$sample, join_by(sample_name)) |>
+    left_join(s4$sample |> as_tibble(rownames = "sample_name"), join_by(sample_name)) |>
     left_join(s4$genes, join_by(gene_id)) |>
     select(mouse, sample_name, sex, genotype, condition, gene_id, gene_name, gene_type, z) |>
     mutate(mouse = paste0("M", mouse),
@@ -70,14 +72,14 @@ fig3_h <-
 	  axis.text.x.top = element_text(size = 10, margin = margin(t = 0, b = 0)),
           axis.text.y = element_text(size = 9, face = "italic"), 
 	  panel.grid = element_blank(),
-	  #plot.title = element_text(size = 10, face = "bold"),
 	  strip.text = element_text(size = 10, margin = margin(t = 0, b = 0)),
 	  strip.placement = "outside"
 	  ) +
     labs(x = NULL, y = NULL) +
     guides(fill = guide_colorbar(barwidth = .5))
 
-ggsave("pdf/fig3_h.pdf", fig3_h, 
+#ggsave("pdf/fig3_h.pdf", fig3_h, 
+ggsave("pdf_merged_samples/fig3_h.pdf", fig3_h, 
        width = 120, height = 160, 
        dpi = 600,
        units = "mm", 
@@ -135,8 +137,8 @@ fig3_i <-
     labs(x = "Normalized enrichment score", 
 	 y = NULL, color = NULL) 
 
-
-ggsave("pdf/fig3_i.pdf", fig3_i, 
+#ggsave("pdf/fig3_i.pdf", fig3_i, 
+ggsave("pdf_merged_samples/fig3_i.pdf", fig3_i, 
        width = 120, height = 66, 
        dpi = 600,
        units = "mm", 
@@ -169,7 +171,8 @@ long_sel <-
     as.data.frame() |>
     as_tibble(rownames = "gene_id") |>
     pivot_longer(-gene_id, names_to = "sample_name", values_to = "z") |>
-    left_join(s4_0$sample, join_by(sample_name)) |>
+    #left_join(s4_0$sample, join_by(sample_name)) |>
+    left_join(s4_0$sample |> as_tibble(rownames = "sample_name"), join_by(sample_name)) |>
     left_join(s4_0$genes, join_by(gene_id)) |>
     select(mouse, sample_name, sex, genotype, condition, gene_id, gene_name, gene_type, z) |>
     mutate(mouse = paste0("M", mouse),
@@ -200,7 +203,8 @@ fig_s3g <-
     labs(x = NULL, y = NULL) +
     guides(fill = guide_colorbar(barwidth = .5))
 
-ggsave("pdf/Sfig3_g.pdf", fig_s3g, 
+#ggsave("pdf/Sfig3_g.pdf", fig_s3g, 
+ggsave("pdf_merged_samples/Sfig3_g.pdf", fig_s3g, 
        width = 120, height = 160, 
        dpi = 600,
        units = "mm", 

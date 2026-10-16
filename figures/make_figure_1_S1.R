@@ -6,36 +6,40 @@ library(patchwork)
 library(gridExtra)
 
 # Expression data
-y <- read_rds("../02_dge/output/edger/dgelist_collapsed.rds")
+#y <- read_rds("../02_dge/output/edger/dgelist_collapsed.rds")
+y <- read_rds("../merge_by_sample/02_dge/output/edger/dgelist.rds")
 
 # ---- Figure 1-g: Aire, dRANKL vs WT ----------------------------------------
 # Exp5: Thymus dRANKL vs WT  (unpaired; adjust for sex) -----------------------
-s5    <- y[, y$samples$experiment == "exp5"]
-sex5  <- factor(s5$samples$sex)
-geno5 <- factor(s5$samples$genotype, levels = c("WT", "Mut")) 
+s5_0  <- y[, y$samples$experiment == "exp5"]
+sex5  <- factor(s5_0$samples$sex)
+geno5 <- factor(s5_0$samples$genotype, levels = c("WT", "Mut")) 
 design5 <- model.matrix(~ sex5 + geno5)
 
-s5   <- s5[filterByExpr(s5, group = geno5), , keep.lib.sizes = FALSE]
+s5   <- s5_0[filterByExpr(s5_0, group = geno5), , keep.lib.sizes = FALSE]
 s5   <- normLibSizes(s5)
 s5   <- estimateDisp(s5, design5, robust = TRUE)
 
-res5 <- read_tsv("../02_dge/output/edger/Exp5_Thymus_dRANKL_vs_WT.tsv.gz")
+#res5 <- read_tsv("../02_dge/output/edger/Exp5_Thymus_dRANKL_vs_WT.tsv.gz")
+res5 <- read_tsv("../merge_by_sample/02_dge/output/edger/Exp5_Thymus_dRANKL_vs_WT.tsv.gz")
 
 # dots = CPM on Exp5's own normalisation; 
 # the p-value/FDR come from the same fit (res5)
-aire <- which(s5$genes$gene_name == "Aire")
+aire <- which(s5_0$genes$gene_name == "Aire")
 
 aire_expr <- 
-    tibble(sample_name = colnames(s5),
-	   CPM = cpm(s5, log = FALSE)[aire, ]) |>
-    left_join(s5$samples, join_by(sample_name)) |>
+    tibble(sample_name = colnames(s5_0),
+	   CPM = cpm(s5_0, log = FALSE)[aire, ]) |>
+    #left_join(s5_0$samples, 
+    left_join(s5_0$samples |> as_tibble(rownames = "sample_name"), 
+	      join_by(sample_name)) |>
     select(sample_name, sex, genotype, CPM) |>
     mutate(genotype = factor(genotype, levels = c("WT", "Mut")))
 
+# Aire was filtered out due to low expression levels
 aire_stats <- 
     filter(res5, gene_name == "Aire") |>
     select(gene_name, logFC, logCPM, PValue, FDR)
-
 
 fig1_g <- 
     ggplot(aire_expr, aes(x = genotype, y = CPM)) +
@@ -46,12 +50,12 @@ fig1_g <-
     geom_jitter(aes(fill = genotype), 
 		shape = 21, stroke = .25,
 		width = .15, size = 2) +
-    geom_signif(
-		comparisons = list(c("WT", "Mut")),
-		annotations = round(aire_stats$PValue, 2),
-		y_position = max(aire_expr$CPM) * 1.05,
-		tip_length = 0, textsize = 8/.pt
-    ) +
+    #geom_signif(
+    #    	comparisons = list(c("WT", "Mut")),
+    #    	annotations = round(aire_stats$PValue, 2),
+    #    	y_position = max(aire_expr$CPM) * 1.05,
+    #    	tip_length = 0, textsize = 8/.pt
+    #) +
     scale_fill_manual(values = c("WT" = "#999999", "Mut" = "#75143F")) +
     scale_y_continuous(limits = c(0, NA),
 		       expand = expansion(mult = c(0, .1))) +
@@ -66,7 +70,8 @@ fig1_g <-
     labs(x = NULL, y = "Expression (CPM)",
 	 title = expression(italic("Aire")))
     
-ggsave("pdf/fig1_g.pdf", fig1_g, 
+#ggsave("pdf/fig1_g.pdf", fig1_g, 
+ggsave("pdf_merged_samples/fig1_g.pdf", fig1_g, 
        width = 30, height = 40, 
        dpi = 600,
        units = "mm", device = cairo_pdf)
@@ -76,7 +81,6 @@ ggsave("pdf/fig1_g.pdf", fig1_g,
 ## moderate LFCs
 lfc_mod5 <- predFC(s5, design5, prior.count = 2)[, ncol(design5)]
 res5 <- res5 |> mutate(logFC_mod = lfc_mod5[gene_id])
-
 
 volcano_s1c <-
     ggplot(res5, aes(logFC_mod, -log10(PValue))) +
@@ -124,7 +128,8 @@ fig_s1c <-
     volcano_s1c / wrap_elements(tbl_plot) +
     plot_layout(heights = c(4, 1))
 
-ggsave("pdf/Sfig1_c.pdf", fig_s1c, 
+#ggsave("pdf/Sfig1_c.pdf", fig_s1c, 
+ggsave("pdf_merged_samples/Sfig1_c.pdf", fig_s1c, 
        width = 130, height = 130, 
        dpi = 600,
        units = "mm", 
