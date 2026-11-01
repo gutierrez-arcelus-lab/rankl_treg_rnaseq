@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 #SBATCH -N 1
-#SBATCH -c 8
+#SBATCH -c 16
 #SBATCH --mem=24gb
 #SBATCH -t 24:00:00
 #SBATCH -p bch-compute
@@ -12,7 +12,7 @@
 #SBATCH -e logs/Salmon-index.%j.err
 
 source /programs/biogrids.shrc
-export SALMON_X=1.10.1
+export SALMON2_X=2.8.0
 
 cd "${SLURM_SUBMIT_DIR}"
 
@@ -30,3 +30,4 @@ salmon index \
     -k 21 \
     -p "$SLURM_CPUS_PER_TASK" \
     --tmpdir "${TEMP_WORK}/temp/salmon"
+

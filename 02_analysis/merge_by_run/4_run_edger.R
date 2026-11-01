@@ -3,13 +3,15 @@ library(readxl)
 library(tximport)
 library(edgeR)
 
-ref  <- "../../01_expression/0_index/data/reference"
+# DGEListFromTximport() and offset.prior support in voomLmFit() need edgeR >= 4.10
+stopifnot(packageVersion("edgeR") >= "4.10.0")
+
+ref  <- "../../01_prepare_ref/data/reference"
 outd <- "output/edger"
 
 dir.create(outd, showWarnings = FALSE, recursive = TRUE)
-dir.create("data", showWarnings = FALSE)
 
-# metadata ---------------------------------------------------------------------
+# metadata: one row per run (library) ------------------------------------------
 mut <-
     "../../00_fastq_qc/data/Broad_SK-691I_RLB for Vitor.xls" |>
     read_excel(sheet = "Sample Info", skip = 2, col_names = FALSE) |>
@@ -17,12 +19,12 @@ mut <-
     filter(!is.na(genotype))
 
 metrics <-
-    "../01_expression/1_quantification/output/mapping_metrics.tsv" |>
+    "./output/mapping_metrics.tsv" |>
     read_tsv() |>
-    select(experiment, sample_name, sex) |>
+    select(experiment, run, sample_name, sex) |>
     mutate(experiment = str_replace(experiment, "Experiment ", "exp"))
 
-meta <- 
+meta <-
     metrics |>
     left_join(mut, join_by(sample_name)) |>
     mutate(
@@ -37,18 +39,18 @@ meta <-
 				 str_detect(sample_name, "^iYFP-")     ~ "iTregs",
 				 str_detect(sample_name, "^Thymus-")   ~ "Thymus"))
 
-# import + collapse tech reps -------------------------------------------------
-txi <- read_rds("../01_expression/1_quantification/output/salmon_txi.rds") 
+# import (technical replicates kept separate) ----------------------------------
+txi <- read_rds("./output/salmon_txi.rds")
 
-samples <- 
+samples <-
     meta |>
-    column_to_rownames("sample_name")
+    column_to_rownames("run")
 
 samples <- samples[colnames(txi$counts), ]
 
 y <- DGEListFromTximport(txi, samples = samples, divide = TRUE)
 
-gene_meta <- 
+gene_meta <-
     read_tsv(file.path(ref, "gencode.vM39.gene_metadata.tsv"),
 	     show_col_types = FALSE) |>
     select(gene_id, gene_name, gene_type)
@@ -56,47 +58,40 @@ gene_meta <-
 y$genes <- cbind(y$genes, gene_meta[match(rownames(y), gene_meta$gene_id), ])
 
 write_rds(y, file.path(outd, "dgelist.rds"))
-#y <- read_rds(file.path(outd, "dgelist.rds"))
 
 # ==============================================================================
-# Differential expression 
+# Differential expression: limma-voom, libraries from the same biological
+# sample treated as correlated (block = sample_name)
 # ==============================================================================
 
 # Exp2: iYFP Foxp3^WT vs Foxp3^dRANKL  (unpaired; adjust for sex) -------------
 s2    <- y[, y$samples$experiment == "exp2"]
 sex2  <- factor(s2$samples$sex)
-geno2 <- factor(s2$samples$genotype, levels = c("WT", "Mut"))  
-design2 <- model.matrix(~ sex2 + geno2) 
+geno2 <- factor(s2$samples$genotype, levels = c("WT", "Mut"))
+design2 <- model.matrix(~ sex2 + geno2)
 
 s2   <- s2[filterByExpr(s2, group = geno2), , keep.lib.sizes = FALSE]
 s2   <- normLibSizes(s2)
-s2   <- estimateDisp(s2, design2, robust = TRUE)
-fit2 <- glmQLFit(s2, design2, robust = TRUE)
+fit2 <- voomLmFit(s2, design2, block = s2$samples$sample_name) |> eBayes(robust = TRUE)
 
 res2 <-
-    glmQLFTest(fit2, coef = ncol(design2)) |>         
-    topTags(n = Inf) |>
-    (\(x) x$table)() |>
+    topTable(fit2, coef = ncol(design2), number = Inf) |>
     as_tibble()
 
 write_tsv(res2, file.path(outd, "Exp2_iYFP_Mut_vs_WT.tsv.gz"))
 
-
 # Exp3: IL-1b vs IL-6  (paired within mouse) -----------------------------------
 s3     <- y[, y$samples$experiment == "exp3"]
 mouse3 <- factor(s3$samples$mouse)
-cond3  <- factor(s3$samples$condition, levels = c("IL-6", "IL-1b"))       
+cond3  <- factor(s3$samples$condition, levels = c("IL-6", "IL-1b"))
 design3 <- model.matrix(~ mouse3 + cond3)
 
 s3   <- s3[filterByExpr(s3, group = cond3), , keep.lib.sizes = FALSE]
 s3   <- normLibSizes(s3)
-s3   <- estimateDisp(s3, design3, robust = TRUE)
-fit3 <- glmQLFit(s3, design3, robust = TRUE)
+fit3 <- voomLmFit(s3, design3, block = s3$samples$sample_name) |> eBayes(robust = TRUE)
 
-res3 <- 
-    glmQLFTest(fit3, coef = ncol(design3)) |>
-    topTags(n = Inf) |>
-    (\(x) x$table)() |>
+res3 <-
+    topTable(fit3, coef = ncol(design3), number = Inf) |>
     as_tibble()
 
 write_tsv(res3, file.path(outd, "Exp3_IL1b_vs_IL6.tsv.gz"))
@@ -105,17 +100,14 @@ write_tsv(res3, file.path(outd, "Exp3_IL1b_vs_IL6.tsv.gz"))
 s4     <- y[, y$samples$experiment == "exp4"]
 mouse4 <- factor(s4$samples$mouse)
 cond4  <- factor(s4$samples$condition, levels = c("RANKLneg", "RANKL"))
-design4 <- model.matrix(~ mouse4 + cond4)                             
+design4 <- model.matrix(~ mouse4 + cond4)
 
 s4   <- s4[filterByExpr(s4, group = cond4), , keep.lib.sizes = FALSE]
 s4   <- normLibSizes(s4)
-s4   <- estimateDisp(s4, design4, robust = TRUE)
-fit4 <- glmQLFit(s4, design4, robust = TRUE)
+fit4 <- voomLmFit(s4, design4, block = s4$samples$sample_name) |> eBayes(robust = TRUE)
 
-res4 <- 
-    glmQLFTest(fit4, coef = ncol(design4)) |>
-    topTags(n = Inf) |>
-    (\(x) x$table)() |>
+res4 <-
+    topTable(fit4, coef = ncol(design4), number = Inf) |>
     as_tibble()
 
 write_tsv(res4, file.path(outd, "Exp4_RANKLpos_vs_RANKLneg.tsv.gz"))
@@ -123,29 +115,28 @@ write_tsv(res4, file.path(outd, "Exp4_RANKLpos_vs_RANKLneg.tsv.gz"))
 # Exp5: Thymus dRANKL vs WT  (unpaired; adjust for sex) -----------------------
 s5    <- y[, y$samples$experiment == "exp5"]
 sex5  <- factor(s5$samples$sex)
-geno5 <- factor(s5$samples$genotype, levels = c("WT", "Mut")) 
+geno5 <- factor(s5$samples$genotype, levels = c("WT", "Mut"))
 design5 <- model.matrix(~ sex5 + geno5)
 
 s5   <- s5[filterByExpr(s5, group = geno5), , keep.lib.sizes = FALSE]
 s5   <- normLibSizes(s5)
-s5   <- estimateDisp(s5, design5, robust = TRUE)
-fit5 <- glmQLFit(s5, design5, robust = TRUE)
+fit5 <- voomLmFit(s5, design5, block = s5$samples$sample_name) |> eBayes(robust = TRUE)
 
-res5 <- 
-    glmQLFTest(fit5, coef = ncol(design5)) |> 
-    topTags(n = Inf) |>
-    (\(x) x$table)() |>
+res5 <-
+    topTable(fit5, coef = ncol(design5), number = Inf) |>
     as_tibble()
 
 write_tsv(res5, file.path(outd, "Exp5_Thymus_dRANKL_vs_WT.tsv.gz"))
 
 # ---- quick summary ---------------------------------------------------------
 bind_rows(
+    tibble(contrast = "Exp2_iYFP_Mut_vs_WT",       res = list(res2)),
     tibble(contrast = "Exp3_IL1b_vs_IL6",          res = list(res3)),
-    tibble(contrast = "Exp1_RANKLpos_vs_RANKLneg", res = list(res4)),
+    tibble(contrast = "Exp4_RANKLpos_vs_RANKLneg", res = list(res4)),
     tibble(contrast = "Exp5_Thymus_dRANKL_vs_WT",  res = list(res5))) |>
     mutate(tested = map_int(res, nrow),
-           up     = map_int(res, ~ sum(.x$FDR < 0.05 & .x$logFC > 0)),
-           down   = map_int(res, ~ sum(.x$FDR < 0.05 & .x$logFC < 0)),
+           up     = map_int(res, ~ sum(.x$adj.P.Val < 0.05 & .x$logFC > 0)),
+           down   = map_int(res, ~ sum(.x$adj.P.Val < 0.05 & .x$logFC < 0)),
            res = NULL) |>
     print()
+

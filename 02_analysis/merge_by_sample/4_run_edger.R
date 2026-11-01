@@ -3,7 +3,7 @@ library(readxl)
 library(tximport)
 library(edgeR)
 
-ref  <- "../01_expression/0_index/data/reference"
+ref  <- "../../01_prepare_ref/data/reference"
 outd <- "output/edger"
 
 dir.create(outd, showWarnings = FALSE, recursive = TRUE)
@@ -11,24 +11,21 @@ dir.create("data", showWarnings = FALSE)
 
 # metadata ---------------------------------------------------------------------
 mut <-
-    "../00_fastq_qc/data/Broad_SK-691I_RLB for Vitor.xls" |>
+    "../../00_fastq_qc/data/Broad_SK-691I_RLB for Vitor.xls" |>
     read_excel(sheet = "Sample Info", skip = 2, col_names = FALSE) |>
     select(sample_name = 3, genotype = 5, rin = 9) |>
     filter(!is.na(genotype))
 
 metrics <-
-    "../01_expression/1_quantification/output/mapping_metrics.tsv" |>
+    "./output/mapping_metrics.tsv" |>
     read_tsv() |>
-    select(experiment, run) |>
+    select(experiment, sample_name, sex) |>
     mutate(experiment = str_replace(experiment, "Experiment ", "exp"))
 
 meta <- 
-    read_tsv("../00_fastq_qc/data/metadata_fastp.tsv") |>
-    select(1:3) |>
-    mutate(run = str_c(well, sample_name, sep = "_")) |>
+    metrics |>
     left_join(mut, join_by(sample_name)) |>
-    left_join(metrics, join_by(run)) |>
-    mutate(rep_half = if_else(str_detect(well, "^[A-D]"), "rep1", "rep2"),
+    mutate(
 	   mouse = str_c(experiment, str_extract(sample_name, "[0-9]+"), sep = "_"),
 	   condition = case_when(
 				 str_detect(sample_name, "^Tregs-")    ~ "Treg",
@@ -40,60 +37,26 @@ meta <-
 				 str_detect(sample_name, "^iYFP-")     ~ "iTregs",
 				 str_detect(sample_name, "^Thymus-")   ~ "Thymus"))
 
-# run-level depth filter -------------------------------------------------------
-read_meta_info <- function(run) {
-    
-    f <- file.path("../01_expression/1_quantification/output/salmon", run, "aux_info/meta_info.json")
-    
-    j <- jsonlite::fromJSON(f)
-    
-    tibble(run = run, num_processed = j$num_processed, percent_mapped = j$percent_mapped)
-}
-
-qc <- map_dfr(meta$run, read_meta_info)
-
-meta_filt <-
-    meta |>
-    left_join(qc, by = "run") |>
-    filter(!is.na(num_processed), num_processed >= 1e6)
-
-write_tsv(meta_filt, "./data/metadata_filtered.tsv")
-
 # import + collapse tech reps -------------------------------------------------
-files <- 
-    file.path("../01_expression/1_quantification/output/salmon", meta_filt$run, "quant.sf") |>
-    set_names(meta_filt$run)
-
-tx2gene <- 
-    file.path(ref, "tx2gene.tsv") |>
-    read_tsv()
-
-txi <- 
-    tximport(files, type = "salmon", tx2gene = tx2gene,
-	     countsFromAbundance = "lengthScaledTPM")
+txi <- read_rds("./output/salmon_txi.rds") 
 
 samples <- 
-    meta_filt |>
-    as.data.frame() |>
-    column_to_rownames("run")
+    meta |>
+    column_to_rownames("sample_name")
 
 samples <- samples[colnames(txi$counts), ]
 
-y_run <- DGEList(counts = txi$counts, samples = samples)
-y     <- sumTechReps(y_run, ID = y_run$samples$sample_name)
+y <- DGEListFromTximport(txi, samples = samples, divide = TRUE)
 
 gene_meta <- 
     read_tsv(file.path(ref, "gencode.vM39.gene_metadata.tsv"),
 	     show_col_types = FALSE) |>
     select(gene_id, gene_name, gene_type)
 
-y$genes <- 
-    tibble(gene_id = rownames(y)) |>
-    left_join(gene_meta, by = "gene_id") |>
-    as.data.frame()
+y$genes <- cbind(y$genes, gene_meta[match(rownames(y), gene_meta$gene_id), ])
 
-write_rds(y, file.path(outd, "dgelist_collapsed.rds"))
-#y <- read_rds(file.path(outd, "dgelist_collapsed.rds"))
+write_rds(y, file.path(outd, "dgelist.rds"))
+#y <- read_rds(file.path(outd, "dgelist.rds"))
 
 # ==============================================================================
 # Differential expression 
@@ -186,3 +149,4 @@ bind_rows(
            down   = map_int(res, ~ sum(.x$FDR < 0.05 & .x$logFC < 0)),
            res = NULL) |>
     print()
+

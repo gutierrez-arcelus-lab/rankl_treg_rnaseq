@@ -14,7 +14,7 @@ read_map_rate <- function(path) {
 }
 
 meta <- 
-    "../../../00_fastq_qc/data/metadata_fastp.tsv" |>
+    "../../00_fastq_qc/data/metadata_fastp.tsv" |>
     read_tsv() |>
     distinct(sample_name, sex)
 
@@ -47,8 +47,9 @@ files <-
     file.path("./output/salmon", mapping$sample_name, "quant.sf") |>
     set_names(mapping$sample_name)
 
-tx2gene <- read_tsv("../../../01_expression/0_index/data/reference/tx2gene.tsv")
+tx2gene <- read_tsv("../../01_prepare_ref/data/reference/tx2gene.tsv")
 
 txi <- tximport(files, type = "salmon", tx2gene = tx2gene)
 
 write_rds(txi, "./output/salmon_txi.rds")
+

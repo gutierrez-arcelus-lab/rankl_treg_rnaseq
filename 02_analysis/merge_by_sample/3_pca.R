@@ -6,13 +6,13 @@ library(glue)
 library(readxl)
 
 mut <- 
-    "../../../00_fastq_qc/data/Broad_SK-691I_RLB for Vitor.xls" |>
+    "../../00_fastq_qc/data/Broad_SK-691I_RLB for Vitor.xls" |>
     read_excel(sheet = "Sample Info", skip = 2, col_names = FALSE) |>
     select(sample_name = 3, genot = 5, rin = 9) |>
     filter(!is.na(genot))
 
 meta <- 
-    "../1_quantification/output/mapping_metrics.tsv" |>
+    "./output/mapping_metrics.tsv" |>
     read_tsv() |>
     select(experiment, sample_name, sex, num_reads, percent_mapped) |>
     left_join(mut, join_by(sample_name)) |>
@@ -28,7 +28,7 @@ meta <-
 				 TRUE ~ NA_character_))
 
 # Salmon quant  
-txi <- read_rds("../1_quantification/output/salmon_txi.rds") 
+txi <- read_rds("./output/salmon_txi.rds") 
 
 genes_detected <- 
     tibble(sample_name = colnames(txi$counts),
@@ -197,3 +197,4 @@ walk(sort(unique(dds$experiment)), function(e) {
     print(plot_rsq(pc_covariate_rsq(pcs$scores), e))
 })
 dev.off()
+

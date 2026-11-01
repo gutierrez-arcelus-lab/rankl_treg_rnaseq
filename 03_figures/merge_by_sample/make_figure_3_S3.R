@@ -8,11 +8,10 @@ library(fgsea)
 library(msigdbr)
 
 # Expression data
-#y <- read_rds("../02_dge/output/edger/dgelist_collapsed.rds")
-y <- read_rds("../merge_by_sample/02_dge/output/edger/dgelist.rds")
+y <- read_rds("../../02_analysis/merge_by_sample/output/edger/dgelist.rds")
 
 gene_meta <- 
-    "../01_expression/0_index/data/reference/gencode.vM39.gene_metadata.tsv" |>
+    "../../01_prepare_ref/data/reference/gencode.vM39.gene_metadata.tsv" |>
     read_tsv()
 
 # Figure 3-h,i: RANKL+ vs RANKL- -----------------------------------------------
@@ -26,8 +25,7 @@ s4   <- s4_0[filterByExpr(s4_0, group = cond4), , keep.lib.sizes = FALSE]
 s4   <- normLibSizes(s4)
 s4   <- estimateDisp(s4, design4, robust = TRUE)
 
-#res4 <- read_tsv("../02_dge/output/edger/Exp4_RANKLpos_vs_RANKLneg.tsv.gz")
-res4 <- read_tsv("../merge_by_sample/02_dge/output/edger/Exp4_RANKLpos_vs_RANKLneg.tsv.gz")
+res4 <- read_tsv("../../02_analysis/merge_by_sample/output/edger/Exp4_RANKLpos_vs_RANKLneg.tsv.gz")
 
 # 1. top 50 genes by p-value
 top_genes <- 
@@ -46,7 +44,6 @@ long <-
     mat_z |>
     as_tibble(rownames = "gene_id") |>
     pivot_longer(-gene_id, names_to = "sample_name", values_to = "z") |>
-    #left_join(s4$sample, join_by(sample_name)) |>
     left_join(s4$sample |> as_tibble(rownames = "sample_name"), join_by(sample_name)) |>
     left_join(s4$genes, join_by(gene_id)) |>
     select(mouse, sample_name, sex, genotype, condition, gene_id, gene_name, gene_type, z) |>
@@ -78,8 +75,7 @@ fig3_h <-
     labs(x = NULL, y = NULL) +
     guides(fill = guide_colorbar(barwidth = .5))
 
-#ggsave("pdf/fig3_h.pdf", fig3_h, 
-ggsave("pdf_merged_samples/fig3_h.pdf", fig3_h, 
+ggsave("pdf/fig3_h.pdf", fig3_h, 
        width = 120, height = 160, 
        dpi = 600,
        units = "mm", 
@@ -96,7 +92,7 @@ ranks <-
     deframe()
 
 pathways <- 
-    msigdbr(species = "Mus musculus", category = "H") |>  
+    msigdbr(species = "Mus musculus", collection = "H") |>  
     (\(x) split(x = x$gene_symbol, f = x$gs_name))()
 
 set.seed(1)
@@ -137,8 +133,7 @@ fig3_i <-
     labs(x = "Normalized enrichment score", 
 	 y = NULL, color = NULL) 
 
-#ggsave("pdf/fig3_i.pdf", fig3_i, 
-ggsave("pdf_merged_samples/fig3_i.pdf", fig3_i, 
+ggsave("pdf/fig3_i.pdf", fig3_i, 
        width = 120, height = 66, 
        dpi = 600,
        units = "mm", 
@@ -171,7 +166,6 @@ long_sel <-
     as.data.frame() |>
     as_tibble(rownames = "gene_id") |>
     pivot_longer(-gene_id, names_to = "sample_name", values_to = "z") |>
-    #left_join(s4_0$sample, join_by(sample_name)) |>
     left_join(s4_0$sample |> as_tibble(rownames = "sample_name"), join_by(sample_name)) |>
     left_join(s4_0$genes, join_by(gene_id)) |>
     select(mouse, sample_name, sex, genotype, condition, gene_id, gene_name, gene_type, z) |>
@@ -203,9 +197,22 @@ fig_s3g <-
     labs(x = NULL, y = NULL) +
     guides(fill = guide_colorbar(barwidth = .5))
 
-#ggsave("pdf/Sfig3_g.pdf", fig_s3g, 
-ggsave("pdf_merged_samples/Sfig3_g.pdf", fig_s3g, 
+ggsave("pdf/Sfig3_g.pdf", fig_s3g, 
        width = 120, height = 160, 
        dpi = 600,
        units = "mm", 
        device = cairo_pdf)
+
+# Source data ------------------------------------------------------------------
+library(writexl)
+dir.create("source_data", showWarnings = FALSE)
+
+write_xlsx(list("Fig. 3h" = long,
+                "Fig. 3i" = plot_data_gsea |>
+                    select(pathway, NES, pval, padj, size, le, leadingEdge) |>
+                    mutate(leadingEdge = map_chr(leadingEdge, str_c, collapse = ";"))),
+           "source_data/SourceData_Fig3.xlsx")
+
+write_xlsx(list("Supplementary Fig. 3g" = long_sel),
+           "source_data/SourceData_FigS3.xlsx")
+

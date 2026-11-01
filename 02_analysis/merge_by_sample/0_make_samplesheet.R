@@ -1,6 +1,8 @@
 library(tidyverse)
 
-mqc <- read_tsv("../../00_fastq_qc/output/multiqc/multiqc_data/multiqc_general_stats.txt")
+mqc <- 
+    "../../00_fastq_qc/output/multiqc/multiqc_data/multiqc_general_stats.txt" |>
+    read_tsv()
 
 reads <-
     mqc |>
@@ -23,3 +25,4 @@ samples_merge <-
 	      .by = sample_name)
 
 write_tsv(samples_merge, "data/metadata_salmon_merged.tsv")
+

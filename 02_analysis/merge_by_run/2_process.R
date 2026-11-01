@@ -51,13 +51,12 @@ merge_data <-
 
 write_tsv(merge_data, "./output/mapping_metrics.tsv")
 
-
 # Salmon quant files
 files <-
-    file.path("./output/salmon", meta$run, "quant.sf") |>
-    set_names(meta$run)
+    file.path("./output/salmon", mapping$run, "quant.sf") |>
+    set_names(mapping$run)
 
-tx2gene <- read_tsv("../0_index/data/reference/tx2gene.tsv")
+tx2gene <- read_tsv("../../01_prepare_ref/data/reference/tx2gene.tsv")
 
 txi <- tximport(files, type = "salmon", tx2gene = tx2gene)
 
@@ -123,3 +122,4 @@ p <-
           panel.spacing.x = unit(4, "pt"))
 
 ggsave("./plots/qc_dashboard.pdf", p, width = 8.5, height = 11, units = "in")
+

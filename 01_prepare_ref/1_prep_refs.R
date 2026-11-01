@@ -18,16 +18,10 @@ gencode_tx <-
 fasta <- readDNAStringSet(file.path(ref, "gencode.vM39.transcripts.fa.gz"), "fasta")
 names(fasta) <- str_extract(names(fasta), "^([^|]+)", group = 1)
 
-# Safety check: every PRI transcript must be present in the ALL fasta
-all(gencode_tx$transcript_id %in% names(fasta))
-
 # Subset ALL -> PRI
-# This shows that the original transcript fasta is actually already 'PRI'
+# This shows that, for the mouse genome, the original transcript fasta
+# is actually already 'PRI'
 fasta_pri <- fasta[gencode_tx$transcript_id]
-
-writeXStringSet(fasta_pri,
-                file.path(ref, "gencode.vM39.primary_assembly.transcripts.fa.gz"),
-                compress = TRUE)
 
 # Gentrome = PRI transcripts + primary-assembly genome (transcripts first)
 fasta_genome <- readDNAStringSet(file.path(ref, "GRCm39.primary_assembly.genome.fa.gz"))

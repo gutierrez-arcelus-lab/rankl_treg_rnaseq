@@ -8,11 +8,10 @@ library(fgsea)
 library(msigdbr)
 
 # Expression data
-#y <- read_rds("../02_dge/output/edger/dgelist_collapsed.rds")
-y <- read_rds("../merge_by_sample/02_dge/output/edger/dgelist.rds")
+y <- read_rds("../../02_analysis/merge_by_run/output/edger/dgelist.rds")
 
 gene_meta <- 
-    "../01_expression/0_index/data/reference/gencode.vM39.gene_metadata.tsv" |>
+    "../../01_prepare_ref/data/reference/gencode.vM39.gene_metadata.tsv" |>
     read_tsv()
 
 # Figure 6-f: Tnfsf11 expression -----------------------------------------------
@@ -30,8 +29,7 @@ s2   <- s2[filterByExpr(s2, group = geno2), , keep.lib.sizes = FALSE]
 s2   <- normLibSizes(s2)
 s2   <- estimateDisp(s2, design2, robust = TRUE)
 
-#res2 <- read_tsv("../02_dge/output/edger/Exp2_iYFP_Mut_vs_WT.tsv.gz")
-res2 <- read_tsv("../merge_by_sample/02_dge/output/edger/Exp2_iYFP_Mut_vs_WT.tsv.gz")
+res2 <- read_tsv("../../02_analysis/merge_by_run/output/edger/Exp2_iYFP_Mut_vs_WT.tsv.gz")
 
 # ==============================================================================
 # Exp3: IL-1b vs IL-6
@@ -45,8 +43,7 @@ s3   <- s3_0[filterByExpr(s3_0, group = cond3), , keep.lib.sizes = FALSE]
 s3   <- normLibSizes(s3)
 s3   <- estimateDisp(s3, design3, robust = TRUE)
 
-#res3 <- read_tsv("../02_dge/output/edger/Exp3_IL1b_vs_IL6.tsv.gz")
-res3 <- read_tsv("../merge_by_sample/02_dge/output/edger/Exp3_IL1b_vs_IL6.tsv.gz")
+res3 <- read_tsv("../../02_analysis/merge_by_run/output/edger/Exp3_IL1b_vs_IL6.tsv.gz")
 
 # ==============================================================================
 # Figure
@@ -64,6 +61,9 @@ d6f <-
               gene_cpm(s3, "Tnfsf11") |> mutate(group = condition)) |>
     mutate(group = factor(group, levels = c("WT", "Mut", "IL-6", "IL-1b")))
 
+# dots = libraries; mean and SEM over mice (mean of each mouse's libraries)
+d6f_mouse <- summarise(d6f, CPM = mean(CPM), .by = c(experiment, group, sample_name))
+
 # p-values from the genome-wide fits 
 pv <- 
     c(filter(res2, gene_name == "Tnfsf11")$PValue,
@@ -79,7 +79,9 @@ ann <-
     left_join(d6f |>
                   group_by(experiment) |>
                   summarise(y_position = max(CPM) * 1.08),
-              join_by(experiment))
+              join_by(experiment)) |>
+    mutate(y_position = max(y_position))     # same height in both panels
+
 
 
 xlab_6f <- \(x) parse(text = c("WT"    = "WT",
@@ -92,20 +94,19 @@ fig_6f <-
     geom_point(aes(fill = group), 
 	       position = position_jitter(width = 0.08, height = 0, seed = 1),
                size = 2.5, shape = 21, stroke = .25) +
-    stat_summary(fun = mean, geom = "crossbar", width = 0.5, linewidth = 0.3) +
-    stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, linewidth = 0.4) +
+    stat_summary(data = d6f_mouse, fun = mean, geom = "crossbar", width = 0.5, linewidth = 0.3) +
+    stat_summary(data = d6f_mouse, fun.data = mean_se, geom = "errorbar", width = 0.2, linewidth = 0.4) +
     geom_signif(data = ann,
                 aes(xmin = group1, xmax = group2,
-                    annotations = label, y_position = max(ann$y_position)),
+                    annotations = label, y_position = y_position),
                 manual = TRUE, tip_length = 0.02, textsize = 3, vjust = -0.3) +
     facet_wrap(~ experiment, scales = "free",
                labeller = as_labeller(c(exp2 = "Foxp3 genotype",
                                         exp3 = "Cytokine"))) +
     scale_x_discrete(labels = xlab_6f) +
-    #scale_y_continuous(limits = c(0, 25), expand = expansion(mult = c(0, 0.15))) +
-    scale_y_continuous(limits = c(0, 26), expand = expansion(mult = c(0, 0.15))) +
+    scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.15))) +
     scale_fill_manual(values = c("WT" = "#BEBEBE", "Mut" = "#7D2C4F", "IL-6" = "#F2D791", "IL-1b" = "#548D91"),
-		      guide = "none") +
+                      guide = "none") +
     labs(x = NULL, y = "Expression (CPM)",
 	 title = "Tnfsf11"
 	 ) +
@@ -117,8 +118,7 @@ fig_6f <-
 	  plot.title = element_text(size = 10, hjust = 0.5, face = "italic")
 	  )
 
-#ggsave("pdf/fig6_f.pdf", fig_6f, 
-ggsave("pdf_merged_samples/fig6_f.pdf", fig_6f, 
+ggsave("pdf/fig6_f.pdf", fig_6f, 
        width = 60, height = 60, 
        dpi = 600,
        units = "mm", 
@@ -144,40 +144,44 @@ long_exp3 <-
     mat_exp3_z |>
     as.data.frame() |>
     as_tibble(rownames = "gene_id") |>
-    pivot_longer(-gene_id, names_to = "sample_name", values_to = "z") |>
-    #left_join(s3$sample, join_by(sample_name)) |>
-    left_join(s3$sample |> as_tibble(rownames = "sample_name"), join_by(sample_name)) |>
+    pivot_longer(-gene_id, names_to = "run", values_to = "z") |>
+    left_join(s3$sample |> as_tibble(rownames = "run"), join_by(run)) |>
     left_join(s3$genes, join_by(gene_id)) |>
-    select(mouse, sample_name, sex, genotype, condition, gene_id, gene_name, gene_type, z) |>
+    select(mouse, run, sample_name, sex, genotype, condition, gene_id, gene_name, gene_type, z) |>
     mutate(mouse = paste0("M", mouse),
 	   condition = factor(condition, levels = c("IL-1b", "IL-6")),
 	   gene_name = factor(gene_name, levels = top_genes_exp3$gene_name),
-	   mouse = str_remove(mouse, "exp3_"))
+	   mouse = str_remove(mouse, "exp3_"),
+	   rep = if_else(str_detect(run, "^[A-D]"), "r1", "r2"))
 
-fig_s6c <- 
-    ggplot(long_exp3, aes(x = mouse, y = gene_name, fill = z)) +
+fig_s6c <-
+    ggplot(long_exp3, aes(x = rep, y = gene_name, fill = z)) +
     geom_tile() +
-    facet_grid(~ condition, scales = "free_x") +
-    scico::scale_fill_scico(palette = "vik", 
+    ggh4x::facet_nested(~ condition + mouse + rep, scales = "free_x", space = "free_x",
+			nest_line = element_line(linewidth = .3), solo_line = TRUE,
+			strip = ggh4x::strip_nested(
+			    text_x = ggh4x::elem_list_text(size = c(10, 10, 7)),   # condition, mouse, r1/r2
+			    by_layer_x = TRUE)) +
+    scico::scale_fill_scico(palette = "vik",
 			    midpoint = 0,
 			    limit = c(-2, 2),
 			    breaks = c(-2, -1, 0, 1, 2)
 			    ) +
-    scale_x_discrete(position = "top") +
+    scale_x_discrete(position = "top", expand = c(0, 0)) +
     scale_y_discrete(expand = c(0, 0)) +
     theme_minimal(base_size = 10) +
     theme(
-	  axis.text.x.top = element_text(size = 10, margin = margin(t = 0, b = 0)),
-          axis.text.y = element_text(size = 9, face = "italic"), 
+	  axis.text.x.top = element_blank(),      # r1/r2 are shown in the strips
+          axis.text.y = element_text(size = 9, face = "italic"),
 	  panel.grid = element_blank(),
-	  strip.text = element_text(size = 10, margin = margin(t = 0, b = 0)),
+	  panel.spacing.x = unit(0, "pt"),
+	  strip.text = element_text(size = 10, margin = margin(t = 1, b = 1)),
 	  strip.placement = "outside"
 	  ) +
     labs(x = NULL, y = NULL) +
     guides(fill = guide_colorbar(barwidth = .5))
 
-#ggsave("pdf/Sfig6_c.pdf", fig_s6c, 
-ggsave("pdf_merged_samples/Sfig6_c.pdf", fig_s6c, 
+ggsave("pdf/Sfig6_c.pdf", fig_s6c, 
        width = 120, height = 100, 
        dpi = 600,
        units = "mm", 
@@ -207,40 +211,45 @@ long_exp3_sel <-
     mat_exp3_sel_z |>
     as.data.frame() |>
     as_tibble(rownames = "gene_id") |>
-    pivot_longer(-gene_id, names_to = "sample_name", values_to = "z") |>
-    #left_join(s3_0$sample, join_by(sample_name)) |>
-    left_join(s3_0$sample |> as_tibble(rownames = "sample_name"), join_by(sample_name)) |>
+    pivot_longer(-gene_id, names_to = "run", values_to = "z") |>
+    left_join(s3_0$sample |> as_tibble(rownames = "run"), join_by(run)) |>
     left_join(s3_0$genes, join_by(gene_id)) |>
-    select(mouse, sample_name, sex, genotype, condition, gene_id, gene_name, gene_type, z) |>
+    select(mouse, run, sample_name, sex, genotype, condition, gene_id, gene_name, gene_type, z) |>
     mutate(mouse = paste0("M", mouse),
 	   condition = factor(condition, levels = c("IL-1b", "IL-6")),
 	   gene_name = factor(gene_name, levels = rev(selected_genes_exp3)),
-	   mouse = str_remove(mouse, "exp3_"))
+	   mouse = str_remove(mouse, "exp3_"),
+	   rep = if_else(str_detect(run, "^[A-D]"), "r1", "r2"))
 
-fig_s6d <- 
-    ggplot(long_exp3_sel, aes(x = mouse, y = gene_name, fill = z)) +
+fig_s6d <-
+    ggplot(long_exp3_sel, aes(x = rep, y = gene_name, fill = z)) +
     geom_tile() +
-    facet_grid(~ condition, scales = "free_x") +
-    scico::scale_fill_scico(palette = "vik", 
+    ggh4x::facet_nested(~ condition + mouse + rep, scales = "free_x", space = "free_x",
+			nest_line = element_line(linewidth = .3), solo_line = TRUE,
+			strip = ggh4x::strip_nested(
+			    text_x = ggh4x::elem_list_text(size = c(10, 10, 7)),   # condition, mouse, r1/r2
+			    by_layer_x = TRUE)) +
+    scico::scale_fill_scico(palette = "vik",
 			    midpoint = 0,
-			    limit = c(-2, 2),
-			    breaks = c(-2, -1, 0, 1, 2)
+			    limit = c(-2.5, 3.5),
+			    oob = scales::squish,
+			    breaks = c(-2, -1, 0, 1, 2, 3)
 			    ) +
-    scale_x_discrete(position = "top") +
+    scale_x_discrete(position = "top", expand = c(0, 0)) +
     scale_y_discrete(expand = c(0, 0)) +
     theme_minimal(base_size = 10) +
     theme(
-	  axis.text.x.top = element_text(size = 10, margin = margin(t = 0, b = 0)),
-          axis.text.y = element_text(size = 9, face = "italic"), 
+	  axis.text.x.top = element_blank(),      # r1/r2 are shown in the strips
+          axis.text.y = element_text(size = 9, face = "italic"),
 	  panel.grid = element_blank(),
-	  strip.text = element_text(size = 10, margin = margin(t = 0, b = 0)),
+	  panel.spacing.x = unit(0, "pt"),
+	  strip.text = element_text(size = 10, margin = margin(t = 1, b = 1)),
 	  strip.placement = "outside"
 	  ) +
     labs(x = NULL, y = NULL) +
     guides(fill = guide_colorbar(barwidth = .5))
 
-#ggsave("pdf/Sfig6_d.pdf", fig_s6d, 
-ggsave("pdf_merged_samples/Sfig6_d.pdf", fig_s6d, 
+ggsave("pdf/Sfig6_d.pdf", fig_s6d, 
        width = 120, height = 100, 
        dpi = 600,
        units = "mm", 
@@ -258,7 +267,7 @@ ranks_exp3 <-
     deframe()
 
 pathways <- 
-    msigdbr(species = "Mus musculus", category = "H") |>  
+    msigdbr(species = "Mus musculus", collection = "H") |>  
     (\(x) split(x = x$gene_symbol, f = x$gs_name))()
 
 set.seed(1)
@@ -299,12 +308,20 @@ gsea_exp3_plot <-
     labs(x = "Normalized enrichment score", 
 	 y = NULL, color = NULL) 
 
-
-#ggsave("pdf/gsea_IL1BvsIL6.pdf", gsea_exp3_plot, 
-ggsave("pdf_merged_samples/gsea_IL1BvsIL6.pdf", gsea_exp3_plot, 
+ggsave("pdf/gsea_IL1BvsIL6.pdf", gsea_exp3_plot, 
        width = 120, height = 90, 
        dpi = 600,
        units = "mm", 
        device = cairo_pdf)
 
+# Source data ------------------------------------------------------------------
+library(writexl)
+dir.create("source_data", showWarnings = FALSE)
+
+write_xlsx(list("Fig. 6f" = select(d6f, any_of(c("experiment", "group", "sample", "sample_name", "CPM")))),
+           "source_data/SourceData_Fig6.xlsx")
+
+write_xlsx(list("Supplementary Fig. 6c" = long_exp3,
+                "Supplementary Fig. 6d" = long_exp3_sel),
+           "source_data/SourceData_FigS6.xlsx")
 

@@ -6,8 +6,7 @@ library(patchwork)
 library(gridExtra)
 
 # Expression data
-#y <- read_rds("../02_dge/output/edger/dgelist_collapsed.rds")
-y <- read_rds("../merge_by_sample/02_dge/output/edger/dgelist.rds")
+y <- read_rds("../../02_analysis/merge_by_sample/output/edger/dgelist.rds")
 
 # ---- Figure 1-g: Aire, dRANKL vs WT ----------------------------------------
 # Exp5: Thymus dRANKL vs WT  (unpaired; adjust for sex) -----------------------
@@ -20,17 +19,15 @@ s5   <- s5_0[filterByExpr(s5_0, group = geno5), , keep.lib.sizes = FALSE]
 s5   <- normLibSizes(s5)
 s5   <- estimateDisp(s5, design5, robust = TRUE)
 
-#res5 <- read_tsv("../02_dge/output/edger/Exp5_Thymus_dRANKL_vs_WT.tsv.gz")
-res5 <- read_tsv("../merge_by_sample/02_dge/output/edger/Exp5_Thymus_dRANKL_vs_WT.tsv.gz")
+res5 <- read_tsv("../../02_analysis/merge_by_sample/output/edger/Exp5_Thymus_dRANKL_vs_WT.tsv.gz")
 
-# dots = CPM on Exp5's own normalisation; 
+# dots = CPM on Exp5's own normalization; 
 # the p-value/FDR come from the same fit (res5)
 aire <- which(s5_0$genes$gene_name == "Aire")
 
 aire_expr <- 
     tibble(sample_name = colnames(s5_0),
 	   CPM = cpm(s5_0, log = FALSE)[aire, ]) |>
-    #left_join(s5_0$samples, 
     left_join(s5_0$samples |> as_tibble(rownames = "sample_name"), 
 	      join_by(sample_name)) |>
     select(sample_name, sex, genotype, CPM) |>
@@ -70,8 +67,7 @@ fig1_g <-
     labs(x = NULL, y = "Expression (CPM)",
 	 title = expression(italic("Aire")))
     
-#ggsave("pdf/fig1_g.pdf", fig1_g, 
-ggsave("pdf_merged_samples/fig1_g.pdf", fig1_g, 
+ggsave("pdf/fig1_g.pdf", fig1_g, 
        width = 30, height = 40, 
        dpi = 600,
        units = "mm", device = cairo_pdf)
@@ -128,9 +124,20 @@ fig_s1c <-
     volcano_s1c / wrap_elements(tbl_plot) +
     plot_layout(heights = c(4, 1))
 
-#ggsave("pdf/Sfig1_c.pdf", fig_s1c, 
-ggsave("pdf_merged_samples/Sfig1_c.pdf", fig_s1c, 
+ggsave("pdf/Sfig1_c.pdf", fig_s1c, 
        width = 130, height = 130, 
        dpi = 600,
        units = "mm", 
        device = cairo_pdf)
+
+# Source data ------------------------------------------------------------------
+library(writexl)
+dir.create("source_data", showWarnings = FALSE)
+
+write_xlsx(list("Fig. 1g" = aire_expr),
+           "source_data/SourceData_Fig1.xlsx")
+
+write_xlsx(list("Supplementary Fig. 1c" =
+                    select(res5, gene_id, gene_name, logFC, logFC_mod, PValue, FDR)),
+           "source_data/SourceData_FigS1.xlsx")
+

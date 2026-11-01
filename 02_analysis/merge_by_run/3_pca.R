@@ -12,7 +12,7 @@ mut <-
     filter(!is.na(genot))
 
 metrics <- 
-    "../1_quantification/output/mapping_metrics.tsv" |>
+    "./output/mapping_metrics.tsv" |>
     read_tsv() |>
     select(experiment, run, num_reads, percent_mapped)
 
@@ -36,15 +36,16 @@ meta <-
     left_join(metrics, join_by(run))
 
 # Salmon quant  
-txi <- read_rds("../1_quantification/output/salmon_txi.rds") 
+txi <- read_rds("./output/salmon_txi.rds") 
 
 genes_detected <- 
     tibble(run = colnames(txi$counts),
 	   genes_detected = colSums(txi$counts > 0))
 
 # align colData to txi columns
-sample_table <- 
+sample_table <-
     meta |>
+    filter(run %in% colnames(txi$counts)) |>        
     left_join(genes_detected, join_by(run)) |>
     mutate(run = factor(run, levels = colnames(txi$counts))) |>
     arrange(run) |>
@@ -205,3 +206,4 @@ walk(sort(unique(dds$experiment)), function(e) {
     print(plot_rsq(pc_covariate_rsq(pcs$scores), e))
 })
 dev.off()
+
