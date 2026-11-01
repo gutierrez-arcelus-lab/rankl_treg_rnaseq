@@ -14,22 +14,7 @@ gene_meta <-
     "../../01_prepare_ref/data/reference/gencode.vM39.gene_metadata.tsv" |>
     read_tsv()
 
-# Figure 6-f: Tnfsf11 expression -----------------------------------------------
-
-# ==============================================================================
-# Exp2: iYFP Foxp3^WT vs Foxp3^dRANKL
-# ==============================================================================
-s2    <- y[, y$samples$experiment == "exp2"]
-sex2  <- factor(s2$samples$sex)
-geno2 <- factor(s2$samples$genotype, levels = c("WT", "Mut"))
-
-design2 <- model.matrix(~ sex2 + geno2)
-
-s2   <- s2[filterByExpr(s2, group = geno2), , keep.lib.sizes = FALSE]
-s2   <- normLibSizes(s2)
-s2   <- estimateDisp(s2, design2, robust = TRUE)
-
-res2 <- read_tsv("../../02_analysis/merge_by_sample/output/edger/Exp2_iYFP_Mut_vs_WT.tsv.gz")
+# Figure 6-f: Tnfsf11 expression (IL-6 vs IL-1b only) --------------------------
 
 # ==============================================================================
 # Exp3: IL-1b vs IL-6
@@ -57,51 +42,38 @@ gene_cpm <- function(s, gene) {
 }
 
 d6f <-
-    bind_rows(gene_cpm(s2, "Tnfsf11") |> mutate(group = as.character(genotype)),
-              gene_cpm(s3, "Tnfsf11") |> mutate(group = condition)) |>
-    mutate(group = factor(group, levels = c("WT", "Mut", "IL-6", "IL-1b")))
+    gene_cpm(s3, "Tnfsf11") |>
+    mutate(group = factor(condition, levels = c("IL-6", "IL-1b")))
 
-# p-values from the genome-wide fits 
-pv <- 
-    c(filter(res2, gene_name == "Tnfsf11")$PValue,
-      filter(res3, gene_name == "Tnfsf11")$PValue) |>
+# p-value from the genome-wide fit
+pv <-
+    filter(res3, gene_name == "Tnfsf11")$PValue |>
     {\(p) case_when(p < 0.001 ~ as.character(signif(p, 2)), TRUE ~ sprintf("%.2f", p))}()
 
-# one bracket per facet
 ann <-
-    tibble(experiment = c("exp2", "exp3"),
-           group1     = c("WT",   "IL-6"),
-           group2     = c("Mut",  "IL-1b"),
-           label      = pv) |>
-    left_join(d6f |>
-                  group_by(experiment) |>
-                  summarise(y_position = max(CPM) * 1.08),
-              join_by(experiment))
+    tibble(group1     = "IL-6",
+           group2     = "IL-1b",
+           label      = pv,
+           y_position = max(d6f$CPM) * 1.08)
 
-
-xlab_6f <- \(x) parse(text = c("WT"    = "WT",
-                               "Mut"   = "Delta*RANKL",
-                               "IL-6"  = "'IL-6'",
+xlab_6f <- \(x) parse(text = c("IL-6"  = "'IL-6'",
                                "IL-1b" = "'IL-1'*beta")[x])
 
 fig_6f <-
     ggplot(d6f, aes(group, CPM)) +
     geom_point(aes(fill = group), 
 	       position = position_jitter(width = 0.08, height = 0, seed = 1),
-               size = 2.5, shape = 21, stroke = .25) +
+               size = 2.5, shape = 21, stroke = .33) +
     stat_summary(fun = mean, geom = "crossbar", width = 0.5, linewidth = 0.3) +
     stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, linewidth = 0.4) +
     geom_signif(data = ann,
                 aes(xmin = group1, xmax = group2,
-                    annotations = label, y_position = max(ann$y_position)),
+                    annotations = label, y_position = y_position),
                 manual = TRUE, tip_length = 0.02, textsize = 3, vjust = -0.3) +
-    facet_wrap(~ experiment, scales = "free",
-               labeller = as_labeller(c(exp2 = "Foxp3 genotype",
-                                        exp3 = "Cytokine"))) +
     scale_x_discrete(labels = xlab_6f) +
     #scale_y_continuous(limits = c(0, 25), expand = expansion(mult = c(0, 0.15))) +
     scale_y_continuous(limits = c(0, 26), expand = expansion(mult = c(0, 0.15))) +
-    scale_fill_manual(values = c("WT" = "#BEBEBE", "Mut" = "#7D2C4F", "IL-6" = "#F2D791", "IL-1b" = "#548D91"),
+    scale_fill_manual(values = c("IL-6" = "#F2D791", "IL-1b" = "#548D91"),
 		      guide = "none") +
     labs(x = NULL, y = "Expression (CPM)",
 	 title = "Tnfsf11"
@@ -115,7 +87,7 @@ fig_6f <-
 	  )
 
 ggsave("pdf/fig6_f.pdf", fig_6f, 
-       width = 60, height = 60, 
+       width = 50, height = 60, 
        dpi = 600,
        units = "mm", 
        device = cairo_pdf)

@@ -159,7 +159,9 @@ selected_genes <-
       "Tgfb3")
 
 sel_genes <-
-    filter(gene_meta, gene_name %in% selected_genes)
+    gene_meta |>
+    filter(gene_name %in% selected_genes) |>
+    filter_out(gene_id %in% top_genes$gene_id)
 
 mat_sel <- 
     cpm(s4_0, log = TRUE, prior.count = 2) |>

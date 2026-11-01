@@ -142,7 +142,7 @@ write_tsv(res5, file.path(outd, "Exp5_Thymus_dRANKL_vs_WT.tsv.gz"))
 # ---- quick summary ---------------------------------------------------------
 bind_rows(
     tibble(contrast = "Exp3_IL1b_vs_IL6",          res = list(res3)),
-    tibble(contrast = "Exp1_RANKLpos_vs_RANKLneg", res = list(res4)),
+    tibble(contrast = "Exp4_RANKLpos_vs_RANKLneg", res = list(res4)),
     tibble(contrast = "Exp5_Thymus_dRANKL_vs_WT",  res = list(res5))) |>
     mutate(tested = map_int(res, nrow),
            up     = map_int(res, ~ sum(.x$FDR < 0.05 & .x$logFC > 0)),

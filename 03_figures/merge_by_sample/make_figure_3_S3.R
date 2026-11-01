@@ -27,6 +27,14 @@ s4   <- estimateDisp(s4, design4, robust = TRUE)
 
 res4 <- read_tsv("../../02_analysis/merge_by_sample/output/edger/Exp4_RANKLpos_vs_RANKLneg.tsv.gz")
 
+# Summary:
+tibble(contrast = "Exp4_RANKLpos_vs_RANKLneg", res = list(res4)) |>
+    mutate(tested = map_int(res, nrow),
+           up     = map_int(res, ~ sum(.x$FDR < 0.05 & .x$logFC > 0)),
+           down   = map_int(res, ~ sum(.x$FDR < 0.05 & .x$logFC < 0)),
+           res = NULL) |>
+    print()
+
 # 1. top 50 genes by p-value
 top_genes <- 
     res4 |>
@@ -151,7 +159,9 @@ selected_genes <-
       "Tgfb3")
 
 sel_genes <-
-    filter(gene_meta, gene_name %in% selected_genes)
+    gene_meta |>
+    filter(gene_name %in% selected_genes) |>
+    filter_out(gene_id %in% top_genes$gene_id)
 
 mat_sel <- 
     cpm(s4_0, log = TRUE, prior.count = 2) |>
@@ -206,6 +216,7 @@ ggsave("pdf/Sfig3_g.pdf", fig_s3g,
 # Source data ------------------------------------------------------------------
 library(writexl)
 dir.create("source_data", showWarnings = FALSE)
+dir.create("sup_data", showWarnings = FALSE)
 
 write_xlsx(list("Fig. 3h" = long,
                 "Fig. 3i" = plot_data_gsea |>
@@ -215,4 +226,7 @@ write_xlsx(list("Fig. 3h" = long,
 
 write_xlsx(list("Supplementary Fig. 3g" = long_sel),
            "source_data/SourceData_FigS3.xlsx")
+
+write_xlsx(list("Supplementary Table 1" = select(res4, gene_id:FDR)),
+           "sup_data/Suppl_Table_1.xlsx")
 

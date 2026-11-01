@@ -3,7 +3,7 @@
 
 This repository contains the code for the bulk RNA-seq analyses in:
 
-> *Manuscript title* (in preparation). Authors.
+> *RANKL identifies peripherally derived regulatory T cells that contribute to context-dependent control of tissue inflammation*. Laza-Briviesca et al.
 
 ## Data
 
@@ -46,9 +46,7 @@ Raw data: *GEO accession to be added.*
     experimental groups, normalized with TMM, and tested within each
     experiment. Sample QC uses PCA and correlation of principal
     components with technical covariates.
-4.  **Figures** (`03_figures`): built from the `merge_by_sample`
-    results. Gene set enrichment uses fgsea with MSigDB Hallmark gene
-    sets for mouse (msigdbr).
+4.  **Figures** (`03_figures`)
 
 ## Repository structure
 
@@ -59,7 +57,7 @@ Raw data: *GEO accession to be added.*
   merge_by_sample/  0_make_samplesheet.R, 1_run_salmon.slurm, 2_process.R,
                     3_pca.R, 4_run_edger.R
   merge_by_run/     same steps, one Salmon run per library
-03_figures/         figure scripts (merge_by_sample results)
+03_figures/         figure scripts (merge_by_sample: main results)
 ```
 
 Scripts are run from their own folder, in numbered order.
