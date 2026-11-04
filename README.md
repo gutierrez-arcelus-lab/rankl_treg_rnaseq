@@ -7,10 +7,9 @@ This repository contains the code for the bulk RNA-seq analyses in:
 
 ## Data
 
-Libraries were prepared with SMART-seq2 (low input) by the Broad
-Institute and sequenced as 38-bp paired-end reads. Each biological
-sample was split into two independently prepared libraries (technical
-replicates).
+Libraries were prepared with SMART-seq2 by the Broad Institute and sequenced
+as 38-bp paired-end reads. Each biological sample was split into two 
+independent libraries.
 
 | Experiment | Cells | Comparison | Design |
 |----|----|----|----|
@@ -41,11 +40,6 @@ Raw data: *GEO accession to be added.*
     -   `merge_by_run`: each library is quantified separately (same
         settings and import); limma-voom (`voomLmFit()`) with the
         biological sample as a blocking factor.
-
-    In both, genes are filtered with `filterByExpr()` using the
-    experimental groups, normalized with TMM, and tested within each
-    experiment. Sample QC uses PCA and correlation of principal
-    components with technical covariates.
 4.  **Figures** (`03_figures`)
 
 ## Repository structure
@@ -59,6 +53,4 @@ Raw data: *GEO accession to be added.*
   merge_by_run/     same steps, one Salmon run per library
 03_figures/         figure scripts (merge_by_sample: main results)
 ```
-
-Scripts are run from their own folder, in numbered order.
 
